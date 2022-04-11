@@ -105,15 +105,11 @@ Based on ptrace.
 
 2. `readelf -s`可以得到函数地址和全局变量地址，可以在函数处设置断点、查看全局变量内存区的内容来验证调试器功能的正确性。
 
-   ![image-20220223021324458](/home/gpf233/.config/Typora/typora-user-images/image-20220223021324458.png)
-
 上图为`readelf -s test`得到的结果，其中有`main`函数、`advance`函数和全局变量`cnt`的地址。
 
 ### 2. `RIP`的值不固定，无法推算断点地址。
 
 每次调试，测试程序在相同代码处的`RIP`都不一样。
-
-<img src="/home/gpf233/.config/Typora/typora-user-images/image-20220223021142171.png" alt="image-20220223021142171"  />
 
 上图为使用`mygdb`对`test`程序连续进行四次调试的结果，可以发现每次起始的`RIP`都不一样。
 
@@ -138,31 +134,21 @@ sudo sh -c "echo 0 > /proc/sys/kernel/randomize_va_space"
 
 开启 `ASLR`，在每次程序运行时的时候，装载的可执行文件和共享库都会被映射到虚拟地址空间的不同地址处；而关掉 `ASLR`，则可以保证每次运行时都会被映射到虚拟地址空间的相同地址处。
 
-![image-20220223042025603](/home/gpf233/.config/Typora/typora-user-images/image-20220223042025603.png)
-
 如上图所示，关闭`ASLR`后，每次运行都会映射到虚拟地址空间的相同地址处。
 
 ### 3. 生成了`PIC`（地址无关代码），导致调试过程与预期不符。
 
 解决了`ASLR`的问题之后，调试程序发现不符合预期，`test`并没有在`0x40128e`处（即`advance`函数地址）中断，如下图所示。
 
-![image-20220223040521821](/home/gpf233/.config/Typora/typora-user-images/image-20220223040521821.png)
-
 使用`GDB`进行调试，发现`advance`处的`RIP`和`readelf -s test`得到的地址不一样，如下图所示。
-
-![image-20220223040010549](/home/gpf233/.config/Typora/typora-user-images/image-20220223040010549.png)
 
 程序运行前`b advance`在`advance`函数处打断点，输出信息说断点地址为`0x12a1`，和`readelf -s test`得到的一致，但是运行到断点后断点地址变为了`0x5555555552a1`，`RIP`的值也为`0x5555555552a1`。
 
 后来查了很多资料，发现是`PIE`的问题，编译被调试的程序时要加上`-no-pie`选项禁用`pie`。
 
-![image-20220223024058037](/home/gpf233/.config/Typora/typora-user-images/image-20220223024058037.png)
-
 从上图可以发现禁用`pie`后，`Type`由`DYN`变为了`EXEC`，入口地址也由`0x10c0`变为了`0x4010b0`，而正常情况下64位可执行程序的`text-segment`就是从`0x400000`开始的（见上图最后一条命令）。
 
 再次用`GDB`进行调试，发现`advance`处的`RIP`和`readelf -s test`得到的地址一致了。
-
-![image-20220223041404269](/home/gpf233/.config/Typora/typora-user-images/image-20220223041404269.png)
 
 这样一来，自己的`debugger`终于可以正常停在断点处了。
 
@@ -185,8 +171,6 @@ sudo sh -c "echo 0 > /proc/sys/kernel/randomize_va_space"
 ### 程序运行结果放在第五节以图片的形式展示。
 
 ## 五、程序运行截图
-
-<img src="/home/gpf233/.config/Typora/typora-user-images/image-20220223025318335.png" alt="image-20220223025318335"  />
 
 1. `b 0x40128e`
 
